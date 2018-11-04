@@ -1,0 +1,64 @@
+---
+- name: install packages
+  yum:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+    - unzip
+
+- name: Download and unzip vault binary
+  unarchive:
+    src: "{{ vault_src }}"
+    remote_src: true
+    dest: "{{ vault_bin_path }}"
+    creates: "{{ vault_bin_path }}/vault"
+    owner: root
+    group: root
+    mode: 0755
+    keep_newer: true
+    validate_certs: no
+
+- name: Create vault group
+  group:
+    name: "{{ vault_group }}"
+    state: present
+
+- name: Create vault user
+  user:
+    name: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    comment: "vault systemd service user"
+    home: "{{ vault_path }}"
+    shell: /sbin/nologin
+    system: yes
+    state: present
+
+- name: Create vault systemd service config
+  template:
+    src: service.j2
+    dest: "/etc/systemd/system/{{ vault_service }}.service"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: 0664
+    force: no
+
+- name: Start and enable vault systemd service
+  systemd:
+    name: "{{ vault_service }}"
+    daemon_reload: yes
+    state: started
+    enabled: yes
+
+- name: get vault systemd output
+  shell: "journalctl --no-pager -u {{ vault_service }}.service"
+  register: vault_dev
+
+- name: capture root token
+  set_fact:
+    vault_root_token:  "{{ vault_dev.stdout | regex_findall('Root Token: ([a-zA-Z0-9]{24})') | last }}"
+  # no_log: yes
+
+- name: debug vault_root_token
+  debug:
+    var: vault_root_token

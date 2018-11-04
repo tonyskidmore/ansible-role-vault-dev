@@ -1,0 +1,19 @@
+[Unit]
+Description=Vault Service
+Documentation=https://vaultproject.io/docs/
+After=network.target
+
+[Service]
+User={{ vault_user }}
+Group={{ vault_group }}
+ExecStart={{ vault_bin_path }}/vault server -dev {{ vault_options }}
+ExecReload=/usr/local/bin/kill --signal HUP $MAINPID
+CapabilityBoundingSet=CAP_SYSLOG CAP_IPC_LOCK
+Capabilities=CAP_IPC_LOCK+ep
+SecureBits=keep-caps
+NoNewPrivileges=yes
+KillSignal=SIGINT
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target
